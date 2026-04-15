@@ -85,7 +85,7 @@ void newline(editorState* State, row_state** r_state){
   row_state *curr_row = get_row_at(State, *r_state, pos_y);
   
   // Allocate space for next line
-  new_row->line = malloc(sizeof(char) * 100);
+  new_row->line = malloc(sizeof(char) * 1000);
   new_row->no_of_char = curr_row->no_of_char - pos_x;
   new_row->line_no = pos_y + 1 + 1;
 
@@ -123,7 +123,6 @@ void cursor_to(int y,int x){
 
 escseq CSI_code(editorState *State, row_state *r_state){
   char ch ; 
-  escseq escseq ;
   read(STDIN_FILENO, &ch, 1) ;//ignore
   if(ch == 'w'){
      save_to_file(State, r_state) ;
@@ -172,15 +171,14 @@ void handle_CSI(editorState* State, escseq key, row_state * r_state) {
         State->fileposition_x--;
       }
       break;
+    case OTHER:
+      break;
   }
 }
 
 void delete_line(editorState *State, int line_no){
-  for(int i = 0 ; i < State->no_of_lines ; i++){
-    if(State->index_table[i]>line_no){
-      if(State->index_table[i] < State->no_of_lines-1)
-      State->index_table[i] = State->index_table[i+1];
-    }   
+  for(int i = line_no; i < State->no_of_lines - 1; i++){
+    State->index_table[i] = State->index_table[i+1];
   }
   State->no_of_lines-- ;
 }
@@ -200,7 +198,7 @@ void backSpace(editorState *State , row_state *r_state){
      int posx = last->no_of_char - curr->no_of_char ;
      State->fileposition_y--;
      State->fileposition_x = posx;
-     delete_line(State, State->fileposition_y) ;
+     delete_line(State, State->fileposition_y + 1) ;
   }
   else{
     for( int i = State->fileposition_x -1; i < curr->no_of_char ; i++)
@@ -226,12 +224,15 @@ bool save_buffer(editorState *State, row_state **r_state){
         newline(State, r_state);
         break;
       default: 
-       for(int i = 90 ; i >= State->fileposition_x + 1 ; i--){
-         (*r_state)[State->index_table[State->fileposition_y]].line[i] = (*r_state)[State->index_table[State->fileposition_y]].line[i-1] ;
+       {
+         row_state *curr = get_row_at(State, *r_state, State->fileposition_y);
+         for(int i = curr->no_of_char ; i >= State->fileposition_x + 1 ; i--){
+           curr->line[i] = curr->line[i-1] ;
+         }
+         curr->line[State->fileposition_x] = input;
+         State->fileposition_x++;
+         curr->no_of_char++;
        }
-       get_row_at(State, *r_state, State->fileposition_y)->line[State->fileposition_x] = input;
-        State->fileposition_x++;
-        get_row_at(State, *r_state, State->fileposition_y)->no_of_char++;
     }
     return 1 ;
 }
@@ -308,6 +309,7 @@ int main(int argc,char *argv[]){
   for(int i=0; i < 10; i++) State.index_table[i] = i;
   r_state->line = malloc(sizeof(char)*1000);
   r_state->line_no = 1;
+  r_state->no_of_char = 0;
   bool changeflag = 1 ;
   enable_raw_mode() ;
   initEditor(&State) ;
